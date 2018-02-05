@@ -1,0 +1,148 @@
+---
+title: "Milestone Report - Data Science Capstone"
+author: "Ali Azad"
+date: "August 7, 2017"
+output: html_document
+---
+$~$
+
+## Task 1: Getting & Cleaning the Data
+- Tokenization
+- Profanity Filtering
+- optimize performance and accuracy
+        
+### (1) Data Preparation
+This section is for data preparation. Let's first load necesary libraries, files and functions.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE, prompt=FALSE, results="hide"}
+libs <- c("stringi","SnowballC","ggplot2", "wordcloud", "RWeka")
+lapply(libs, require, character.only=TRUE)
+#
+```
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE, prompt=FALSE, results="hide"}
+pathname  <- "c:/Users/Ali/Desktop/R/Data/en_US"
+file_source = c("blogs", "twitter", "news")
+#
+readline_fun <- function(filename, path){
+        fullpath <- sprintf("%s%s%s%s", path,"/en_US.", filename,".txt")
+        con <- file(fullpath, "r")
+        lines_in <- readLines(con, skipNul = TRUE)
+        for_out <- c(file.info(fullpath)$size/1024^2,
+                     sum(stri_count_words(lines_in)))
+        close(con)
+        return(for_out)
+}
+#
+```
+$~$
+
+### (2) Basic Summary of the Files
+Size of the files provide a base line when comparing files. In this section, other than the size of the files, some basic statistics is also provided for each file.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE, prompt=FALSE, results="hide"}
+data_stats <- lapply (file_source, readline_fun, path=pathname)
+```
+
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+summary_table <- data.frame  (data.source    = file_source,
+                              File_size.MB   = c(data_stats[[1]][1],data_stats[[2]][1],data_stats[[3]][1]),
+                              Number_of_Lines= c(data_stats[[1]][2],data_stats[[2]][2],data_stats[[3]][2]))
+summary_table
+```
+$~$
+
+##### Plot the restuls before cleaning
+
+```{r, cache=TRUE, warning=TRUE}
+#Plot number of lines 
+barplot(summary_table$File_size.MB, 
+names.arg=summary_table$data.source,
+main = "Number of Lines per Input File",
+col="lightblue")
+
+#Plot number of lines vs. file size
+plot(summary_table$Number_of_Lines/1e6, 
+summary_table$File_size.MB,
+xlab= "Number of Lines in millions",
+ylab= "File Size in MB",
+xlim=c(0,40),
+ylim=c(150, 210),
+col= "blue", pch = 19, cex = 1.5)
+text(summary_table$Number_of_Lines/1e6, 
+summary_table$File_size.MB, 
+labels=summary_table$data.source, 
+cex= 1.2, 
+pos=3)
+```
+
+
+### (4) Data Cleaning
+To build models we don't need to load in and use all of the data. Often relatively few randomly selected rows or chunks need to be included to get an accurate approximation to results that would be obtained using all the data. We chosen to sample %5 of the whole data; saved into a single new file.
+In this step, we try to make the data cleaner by removing unnecessary characters such as punctuations, spaces, stop words, etc.
+The 'tm' library was utilized in this section.
+
+```{r Truncate_Sample_Data, cache=TRUE, warning=FALSE, message=FALSE, prompt=FALSE, results="hide"}
+pathname  <- "c:/Users/Ali/Desktop/R/Data/en_US"
+for (fs in c("blogs", "twitter", "news")){
+        #
+        fullpath_in  <- sprintf("%s%s%s%s", pathname,"/en_US.", fs,".txt")
+        fullpath_out <- sprintf("%s%s%s%s", pathname,"/sample/", fs,".txt")
+        #
+        con <- file(fullpath_in, "r")
+        lines_in    <- readLines(con, skipNul = TRUE)
+        sampleout   <- ceiling(runif(n=0.2*length(lines_in), min=0, max=length(lines_in)))
+        line_out    <- lines_in[sampleout]
+        write.table(line_out, file=fullpath_out, row.names=FALSE, col.names=FALSE)
+        close(con)
+}
+```
+
+
+```{r Data_Cleaning, cache=TRUE}
+library(tm)
+importsamples <- function(filename){
+        #
+        fullpath_in  <- sprintf("%s%s%s%s", pathname,"/sample/", filename,".txt")
+        con <- file(fullpath_in, "r")
+        lines_in    <- readLines(con, skipNul = TRUE)
+        close(con)
+        return(list(lines_in, filename))
+}
+CleanCorpus <- function(corpus){
+        corpus.tmp <-  tm_map(corpus, removePunctuation)
+        corpus.tmp <-  tm_map(corpus.tmp, stripWhitespace)
+        corpus.tmp <-  tm_map(corpus.tmp, tolower)
+        corpus.tmp <-  tm_map(corpus.tmp, removeNumbers)
+        corpus.tmp <-  tm_map(corpus.tmp, removeWords, stopwords("english"))
+        return(corpus.tmp)
+}
+# Build the Corpus
+sampledata <- lapply(file_source, importsamples)
+thecorpus  <- Corpus(VectorSource(sampledata))
+
+# Clean and TDM the Corpus
+thecorpus.clean <- CleanCorpus(thecorpus)
+thecorpus.TDM   <- TermDocumentMatrix(thecorpus.clean)
+str(thecorpus.TDM)
+```
+
+### (5) Word Frequency
+Perhaps the first step to explore the content of these files is sorting the most frequent words.The plot blow illustrates the numbre of times the top 20 words have been useds in a small (but random) dataset extracted from the original data.
+
+```{r, cache=TRUE}
+library(tm); library(ggplot2)
+options(mc.cores=1)
+#
+freq    <- sort(rowSums(as.matrix(thecorpus.TDM)), decreasing = TRUE)
+freq.df <- data.frame(word = names(freq), freq = freq)
+ggplot  (freq.df[1:20,], aes(reorder(word, -freq), freq)) +
+        labs(x = "Top 20 Words / Sparse = 1", y = "Frequency") +
+        theme(axis.text.x = element_text(angle = 90, size = 10, hjust = 1))+
+        geom_bar(stat = "identity", fill = "white", colour = "blue")
+```
+
+### (5) Conclustion
+This was a quick exploration. In the next steps of this capstone, we will review more details of the data.This data and a model can then help building a product (Shiny Web App) to predict the words a user wants to type in before s/he complete typing.
+
