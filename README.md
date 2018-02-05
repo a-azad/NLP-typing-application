@@ -4,3 +4,4 @@ This repository contains the codes used to developed the text mining app that ca
 
 https://delgraph.shinyapps.io/MyApp/
 
+![NLP.app](https://github.com/delgraph/NLP_app/blob/master/B%20(225x400).jpg)
