@@ -1,4 +1,4 @@
-# NLP_app
+# NLP Application
 
 This repository contains the codes used to develop a text mining app that can predict what a user might consider typing in. This was a capstone project for the Data Science Specialization offered by Johns Hopkins University and Coursera. 
 Data was generously provided by: https://swiftkey.com/en 
